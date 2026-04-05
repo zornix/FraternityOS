@@ -85,3 +85,42 @@ export interface InviteResult {
   invited: string[];
   failed: { email: string; error: string }[];
 }
+
+export interface DelinquencyScore {
+  member_id: string;
+  name: string;
+  email: string;
+  score: number;
+  attended: number;
+  excused: number;
+  missed: number;
+  total_required: number;
+  unpaid_fines: number;
+  unpaid_amount: number;
+}
+
+export interface EventBreakdown {
+  event_id: string;
+  event_title: string;
+  event_date: string;
+  status: "present" | "excused" | "excuse_pending" | "absent";
+  fine_amount: number | null;
+  fine_status: string | null;
+}
+
+export interface MemberDelinquencyDetail {
+  member: Pick<Member, "id" | "name" | "email">;
+  breakdown: EventBreakdown[];
+}
+
+export interface SecurityAssignment {
+  assigned: { member_id: string; name: string; score: number }[];
+}
+
+export interface ReminderResponse {
+  sent_to: string;
+  name: string;
+  unpaid_count: number;
+  unpaid_total: number;
+  message: string;
+}

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import settings
-from api.routes import auth, events, attendance, excuses, fines, members, checkin_page, cron
+from api.routes import auth, events, attendance, excuses, fines, members, checkin_page, cron, delinquency
 
 app = FastAPI(
     title="FraternityOS API",
@@ -36,6 +36,7 @@ app.include_router(fines.router, prefix="/api/fines", tags=["Fines"])
 app.include_router(members.router, prefix="/api/members", tags=["Members"])
 app.include_router(checkin_page.router, prefix="/c", tags=["Check-In Page"])
 app.include_router(cron.router, prefix="/api/cron", tags=["Cron"])
+app.include_router(delinquency.router, prefix="/api/delinquency", tags=["Delinquency"])
 
 
 @app.get("/api/health")

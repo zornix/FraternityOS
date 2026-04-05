@@ -9,16 +9,18 @@ import { DashboardPage } from "./pages/dashboard";
 import { EventsPage } from "./pages/events";
 import { FinesPage } from "./pages/fines";
 import { MembersPage } from "./pages/members";
+import { DelinquencyPage } from "./pages/delinquency";
 import { MOCK_DB } from "./mocks/mock-db";
 import { CONFIG } from "./lib/config";
 
-type PageId = "dashboard" | "events" | "fines" | "members";
+type PageId = "dashboard" | "events" | "fines" | "members" | "delinquency";
 
 const NAV: { id: PageId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
   { id: "events", label: "Events", icon: "cal" },
   { id: "fines", label: "Fines", icon: "dollar" },
   { id: "members", label: "Members", icon: "users" },
+  { id: "delinquency", label: "Delinquency", icon: "shield" },
 ];
 
 function AppShell() {
@@ -96,6 +98,7 @@ function AppShell() {
           {page === "events" && <EventsPage />}
           {page === "fines" && <FinesPage />}
           {page === "members" && <MembersPage />}
+          {page === "delinquency" && <DelinquencyPage />}
         </div>
       </div>
     </div>

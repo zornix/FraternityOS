@@ -9,6 +9,10 @@ import type {
   FineSummary,
   InviteResult,
   RosterEntry,
+  DelinquencyScore,
+  MemberDelinquencyDetail,
+  SecurityAssignment,
+  ReminderResponse,
 } from "./types";
 
 class ApiClient {
@@ -115,6 +119,20 @@ class ApiClient {
   // Members
   getMembers() {
     return this.request<Member[]>("/api/members");
+  }
+
+  // Delinquency
+  getDelinquencyScores() {
+    return this.request<DelinquencyScore[]>("/api/delinquency/scores");
+  }
+  getMemberDelinquency(memberId: string) {
+    return this.request<MemberDelinquencyDetail>(`/api/delinquency/member/${memberId}`);
+  }
+  assignSecurity() {
+    return this.request<SecurityAssignment>("/api/delinquency/assign-security", { method: "POST" });
+  }
+  sendReminder(memberId: string) {
+    return this.request<ReminderResponse>(`/api/delinquency/remind/${memberId}`, { method: "POST" });
   }
 }
 

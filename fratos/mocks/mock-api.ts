@@ -226,6 +226,96 @@ export const mockApi = {
     // MEMBERS
     if (path === "/api/members") return { ok: true, json: async () => MOCK_DB.members };
 
+    // DELINQUENCY
+    if (path === "/api/delinquency/scores" && method === "GET") {
+      const requiredEvents = MOCK_DB.events.filter((e) => e.required && new Date(e.date) <= new Date());
+      const totalRequired = requiredEvents.length;
+      const eventIds = new Set(requiredEvents.map((e) => e.id));
+
+      const scores = MOCK_DB.members.map((m) => {
+        const attended = MOCK_DB.attendance.filter(
+          (a) => a.member_id === m.id && a.checked_in && eventIds.has(a.event_id),
+        ).length;
+        const excused = MOCK_DB.excuses.filter(
+          (e) => e.member_id === m.id && e.status === "approved" && eventIds.has(e.event_id),
+        ).length;
+        const missed = Math.max(totalRequired - attended - excused, 0);
+        const memberFines = MOCK_DB.fines.filter((f) => f.member_id === m.id && f.status === "unpaid");
+        const unpaidAmount = memberFines.reduce((s, f) => s + f.amount, 0);
+
+        const attPct = totalRequired ? attended / totalRequired : 1;
+        const excPct = totalRequired ? excused / totalRequired : 0;
+        const finePenalty = Math.min(unpaidAmount / 200, 0.1);
+        const score = Math.round((attPct * 70 + excPct * 20 + (1 - finePenalty) * 10) * 10) / 10;
+
+        return {
+          member_id: m.id, name: m.name, email: m.email,
+          score: Math.max(0, Math.min(100, score)),
+          attended, excused, missed, total_required: totalRequired,
+          unpaid_fines: memberFines.length, unpaid_amount: unpaidAmount,
+        };
+      });
+      scores.sort((a, b) => a.score - b.score);
+      return { ok: true, json: async () => scores };
+    }
+
+    const delinqMemberMatch = path.match(/^\/api\/delinquency\/member\/([\w]+)$/);
+    if (delinqMemberMatch && method === "GET") {
+      const mid = delinqMemberMatch[1];
+      const member = MOCK_DB.members.find((m) => m.id === mid);
+      if (!member) return { ok: false, status: 404, json: async () => ({ detail: "Not found" }) };
+
+      const requiredEvents = MOCK_DB.events.filter((e) => e.required);
+      const breakdown = requiredEvents.map((ev) => {
+        const att = MOCK_DB.attendance.find((a) => a.event_id === ev.id && a.member_id === mid);
+        const exc = MOCK_DB.excuses.find((e) => e.event_id === ev.id && e.member_id === mid);
+        const fine = MOCK_DB.fines.find((f) => f.event_id === ev.id && f.member_id === mid);
+
+        let status: string;
+        if (att?.checked_in) status = "present";
+        else if (exc?.status === "approved") status = "excused";
+        else if (exc?.status === "pending") status = "excuse_pending";
+        else status = "absent";
+
+        return {
+          event_id: ev.id, event_title: ev.title, event_date: ev.date,
+          status, fine_amount: fine?.amount ?? null, fine_status: fine?.status ?? null,
+        };
+      });
+      return { ok: true, json: async () => ({ member: { id: member.id, name: member.name, email: member.email }, breakdown }) };
+    }
+
+    if (path === "/api/delinquency/assign-security" && method === "POST") {
+      const requiredEvents = MOCK_DB.events.filter((e) => e.required && new Date(e.date) <= new Date());
+      const totalRequired = requiredEvents.length;
+      const eventIds = new Set(requiredEvents.map((e) => e.id));
+
+      const scores = MOCK_DB.members.map((m) => {
+        const attended = MOCK_DB.attendance.filter(
+          (a) => a.member_id === m.id && a.checked_in && eventIds.has(a.event_id),
+        ).length;
+        const attPct = totalRequired ? attended / totalRequired : 1;
+        return { member_id: m.id, name: m.name, score: Math.round(attPct * 100 * 10) / 10 };
+      });
+      scores.sort((a, b) => a.score - b.score);
+      return { ok: true, json: async () => ({ assigned: scores.slice(0, 3) }) };
+    }
+
+    const remindMatch = path.match(/^\/api\/delinquency\/remind\/([\w]+)$/);
+    if (remindMatch && method === "POST") {
+      const member = MOCK_DB.members.find((m) => m.id === remindMatch[1]);
+      if (!member) return { ok: false, status: 404, json: async () => ({ detail: "Not found" }) };
+      const unpaid = MOCK_DB.fines.filter((f) => f.member_id === member.id && f.status === "unpaid");
+      return {
+        ok: true,
+        json: async () => ({
+          sent_to: member.email, name: member.name,
+          unpaid_count: unpaid.length, unpaid_total: unpaid.reduce((s, f) => s + f.amount, 0),
+          message: "Reminder queued",
+        }),
+      };
+    }
+
     return { ok: false, status: 404, json: async () => ({ detail: "Not found" }) };
   },
 };

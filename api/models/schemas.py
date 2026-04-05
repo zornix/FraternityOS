@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr
+import re
+
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import date, time
 
@@ -67,3 +69,51 @@ class FineSummary(BaseModel):
     total_paid: float
     total_waived: float
     count_unpaid: int
+
+
+class PhoneCheckIn(BaseModel):
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        digits = re.sub(r"\D", "", v)
+        if len(digits) != 9:
+            raise ValueError("Phone number must be 9 digits")
+        return digits
+
+
+class DelinquencyScore(BaseModel):
+    member_id: str
+    name: str
+    email: str
+    score: float
+    attended: int
+    excused: int
+    missed: int
+    total_required: int
+    unpaid_fines: int
+    unpaid_amount: float
+
+
+class EventBreakdownEntry(BaseModel):
+    event_id: str
+    event_title: str
+    event_date: str
+    status: str  # "present" | "excused" | "excuse_pending" | "absent"
+    fine_amount: Optional[float] = None
+    fine_status: Optional[str] = None
+
+
+class SecurityAssignment(BaseModel):
+    member_id: str
+    name: str
+    score: float
+
+
+class ReminderResponse(BaseModel):
+    sent_to: str
+    name: str
+    unpaid_count: int
+    unpaid_total: float
+    message: str

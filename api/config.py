@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
-    FRONTEND_URL: str = "https://fraternyos.vercel.app"
+    FRONTEND_URL: str = "https://fraternityos.vercel.app"
     BASE_URL: str = "https://fraternityos.vercel.app"
     CHECKIN_LINK_TTL_MINUTES: int = 10
 

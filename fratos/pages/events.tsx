@@ -104,44 +104,42 @@ export function EventsPage() {
           </Card>
         )}
 
-        {user.role === "officer" && (
-          <Card>
-            <h3 style={{ margin: "0 0 12px", color: T.tx, fontSize: 15 }}>
-              Attendance ({(attendance.data || []).filter((a) => a.checked_in).length}/{(attendance.data || []).length})
-            </h3>
-            <div style={{ display: "grid", gap: 6 }}>
-              {(attendance.data || []).map((m) => (
-                <div key={m.member_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: T.bg }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar name={m.name} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: T.tx }}>{m.name}</div>
-                      {m.checked_in_at && <div style={{ fontSize: 10, color: T.txm }}>{new Date(m.checked_in_at).toLocaleTimeString()} · {m.method}</div>}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {m.checked_in ? (
-                      <Badge color="green">Present</Badge>
-                    ) : m.excuse_status ? (
-                      <Badge color={m.excuse_status === "approved" ? "blue" : m.excuse_status === "denied" ? "red" : "yellow"}>
-                        {m.excuse_status === "approved" ? "Excused" : m.excuse_status}
-                      </Badge>
-                    ) : (
-                      <>
-                        <Badge color="red">Absent</Badge>
-                        {!isPast && (
-                          <Btn variant="ghost" style={{ padding: "2px 8px", fontSize: 10 }} onClick={() => api.manualCheckin(detail.id, m.member_id).then(attendance.reload)}>
-                            Manual
-                          </Btn>
-                        )}
-                      </>
-                    )}
+        <Card>
+          <h3 style={{ margin: "0 0 12px", color: T.tx, fontSize: 15 }}>
+            Attendance ({(attendance.data || []).filter((a) => a.checked_in).length}/{(attendance.data || []).length})
+          </h3>
+          <div style={{ display: "grid", gap: 6 }}>
+            {(attendance.data || []).map((m) => (
+              <div key={m.member_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: T.bg }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Avatar name={m.name} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.tx }}>{m.name}</div>
+                    {m.checked_in_at && <div style={{ fontSize: 10, color: T.txm }}>{new Date(m.checked_in_at).toLocaleTimeString()} · {m.method}</div>}
                   </div>
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {m.checked_in ? (
+                    <Badge color="green">Present</Badge>
+                  ) : m.excuse_status ? (
+                    <Badge color={m.excuse_status === "approved" ? "blue" : m.excuse_status === "denied" ? "red" : "yellow"}>
+                      {m.excuse_status === "approved" ? "Excused" : m.excuse_status}
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge color="red">Absent</Badge>
+                      {!isPast && user.role === "officer" && (
+                        <Btn variant="ghost" style={{ padding: "2px 8px", fontSize: 10 }} onClick={() => api.manualCheckin(detail.id, m.member_id).then(attendance.reload)}>
+                          Manual
+                        </Btn>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
 
         {modal === "checkin" && (
           <Modal onClose={() => setModal(null)}>

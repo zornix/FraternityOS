@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, Header
 
 from api.db import get_supabase
+from api.config import settings
 
 
 async def get_current_user(authorization: str = Header(...)):

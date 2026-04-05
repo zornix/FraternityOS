@@ -1,22 +1,22 @@
 import { test as base, type Page } from "@playwright/test";
 
 /**
- * Login as a specific demo user by clicking their button on the login screen.
- * Works in mock mode (NEXT_PUBLIC_USE_MOCKS=true).
+ * Login by entering an email on the login screen.
+ * Works with the dev-login endpoint (DATABASE_URL set).
  */
-async function loginAs(page: Page, name: string) {
+async function loginAs(page: Page, email: string) {
   await page.goto("/");
-  const btn = page.locator("button", { hasText: name });
-  await btn.click();
+  await page.fill('input[type="email"]', email);
+  await page.click('button:has-text("Sign In")');
   await page.waitForSelector("text=Dashboard");
 }
 
 export async function loginAsOfficer(page: Page) {
-  await loginAs(page, "Alex Johnson");
+  await loginAs(page, "jake@tke.org");
 }
 
 export async function loginAsMember(page: Page) {
-  await loginAs(page, "Marcus Lee");
+  await loginAs(page, "ryan@tke.org");
 }
 
 interface Fixtures {

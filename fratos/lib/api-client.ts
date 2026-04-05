@@ -1,5 +1,3 @@
-import { CONFIG } from "./config";
-import { mockApi } from "../mocks/mock-api";
 import type {
   Member,
   Event,
@@ -9,33 +7,70 @@ import type {
   FineSummary,
   InviteResult,
   RosterEntry,
-  DelinquencyScore,
-  MemberDelinquencyDetail,
-  SecurityAssignment,
-  ReminderResponse,
+  MemberStanding,
 } from "./types";
+
+/** When unset, same-origin `/api` works on Vercel. In local dev, Next.js is on :3000 and the API is on :8000. */
+function apiBase(): string {
+  const explicit = process.env.NEXT_PUBLIC_API_BASE;
+  if (explicit) return explicit;
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
+  }
+  return "";
+}
 
 class ApiClient {
   private token: string | null = null;
 
   setToken(t: string | null) {
     this.token = t;
+    if (t) {
+      localStorage.setItem("auth_token", t);
+    } else {
+      localStorage.removeItem("auth_token");
+    }
+  }
+
+  getToken(): string | null {
+    if (this.token) return this.token;
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("auth_token");
+      if (saved) {
+        this.token = saved;
+        return saved;
+      }
+    }
+    return null;
   }
 
   async request<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    const token = this.getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = CONFIG.USE_MOCKS
-      ? await mockApi.fetch(path, { ...opts, headers })
-      : await fetch(`${CONFIG.API_BASE}${path}`, { ...opts, headers });
-
-    const data = await res.json();
+    const res = await fetch(`${apiBase()}${path}`, { ...opts, headers });
+    const text = await res.text();
+    let data: unknown = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(
+        `API returned non-JSON (${res.status}). For local dev, run the FastAPI server on port 8000 or set NEXT_PUBLIC_API_BASE.`,
+      );
+    }
     if (!res.ok) throw new Error((data as { detail?: string }).detail || "Request failed");
     return data as T;
   }
 
   // Auth
+  login(email: string) {
+    return this.request<{ access_token?: string; message?: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
   getMe() {
     return this.request<Member>("/api/auth/me");
   }
@@ -121,18 +156,9 @@ class ApiClient {
     return this.request<Member[]>("/api/members");
   }
 
-  // Delinquency
-  getDelinquencyScores() {
-    return this.request<DelinquencyScore[]>("/api/delinquency/scores");
-  }
-  getMemberDelinquency(memberId: string) {
-    return this.request<MemberDelinquencyDetail>(`/api/delinquency/member/${memberId}`);
-  }
-  assignSecurity() {
-    return this.request<SecurityAssignment>("/api/delinquency/assign-security", { method: "POST" });
-  }
-  sendReminder(memberId: string) {
-    return this.request<ReminderResponse>(`/api/delinquency/remind/${memberId}`, { method: "POST" });
+  // Standing
+  getStandings() {
+    return this.request<MemberStanding[]>("/api/standing");
   }
 }
 

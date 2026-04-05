@@ -1,15 +1,12 @@
 "use client";
 import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
 import { api } from "../lib/api-client";
-import { MOCK_DB } from "../mocks/mock-db";
-import { CONFIG } from "../lib/config";
 import { T } from "../lib/theme";
 import type { Member } from "../lib/types";
 
 interface AuthContextValue {
   user: Member;
   logout: () => void;
-  demoLogin: (memberId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -20,55 +17,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginSent, setLoginSent] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
-    if (CONFIG.USE_MOCKS) {
-      MOCK_DB.user = MOCK_DB.members[0];
-      setUser(MOCK_DB.members[0]);
-      setLoading(false);
+    // Check URL hash for Supabase magic link redirect tokens
+    if (typeof window !== "undefined" && window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = params.get("access_token");
+      if (accessToken) {
+        api.setToken(accessToken);
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+
+    // Try to load session from stored token
+    const token = api.getToken();
+    if (token) {
+      api.getMe()
+        .then(setUser)
+        .catch(() => {
+          api.setToken(null);
+        })
+        .finally(() => setLoading(false));
     } else {
-      // Production: check Supabase session on mount
-      // const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-      // sb.auth.getSession().then(({ data: { session } }) => {
-      //   if (session) {
-      //     api.setToken(session.access_token);
-      //     api.getMe().then(setUser).finally(() => setLoading(false));
-      //   } else setLoading(false);
-      // });
       setLoading(false);
     }
   }, []);
 
-  const sendMagicLink = async (email: string) => {
+  const handleLogin = async (email: string) => {
     setLoginError("");
+    setLoginLoading(true);
     try {
-      if (CONFIG.USE_MOCKS) {
-        const member = MOCK_DB.members.find((m) => m.email === email);
-        if (!member) {
-          setLoginError("No account found for this email");
-          return;
-        }
-        setLoginSent(true);
+      const res = await api.login(email);
+      if (res.access_token) {
+        // Local dev mode: got token directly
+        api.setToken(res.access_token);
+        const me = await api.getMe();
+        setUser(me);
       } else {
-        // Production: await supabase.auth.signInWithOtp({ email });
+        // Production: magic link sent
         setLoginSent(true);
       }
     } catch (e) {
       setLoginError((e as Error).message);
-    }
-  };
-
-  const demoLogin = (memberId: string) => {
-    const m = MOCK_DB.members.find((x) => x.id === memberId);
-    if (m) {
-      MOCK_DB.user = m;
-      setUser(m);
+    } finally {
+      setLoginLoading(false);
     }
   };
 
   const logout = () => {
     setUser(null);
-    MOCK_DB.user = null;
     api.setToken(null);
     setLoginSent(false);
   };
@@ -96,35 +94,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 type="email"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && loginEmail) handleLogin(loginEmail); }}
                 placeholder="you@chapter.org"
                 style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${T.bd}`, background: T.bg, color: T.tx, fontSize: 14, marginBottom: 12, boxSizing: "border-box" }}
               />
               {loginError && <div style={{ color: T.err, fontSize: 12, marginBottom: 8 }}>{loginError}</div>}
               <button
-                onClick={() => sendMagicLink(loginEmail)}
-                style={{ width: "100%", padding: "12px", borderRadius: 8, border: "none", background: T.ac, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}
+                onClick={() => handleLogin(loginEmail)}
+                disabled={loginLoading || !loginEmail}
+                style={{ width: "100%", padding: "12px", borderRadius: 8, border: "none", background: T.ac, color: "#fff", fontSize: 14, fontWeight: 600, cursor: loginLoading ? "wait" : "pointer", opacity: loginLoading ? 0.6 : 1 }}
               >
-                Send Magic Link
+                {loginLoading ? "Signing in..." : "Sign In"}
               </button>
-              <div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 16 }}>
-                <p style={{ color: T.txm, fontSize: 11, textAlign: "center", marginBottom: 10 }}>DEMO — Quick login as:</p>
-                <div style={{ display: "grid", gap: 6 }}>
-                  {MOCK_DB.members.slice(0, 4).map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => demoLogin(m.id)}
-                      style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `1px solid ${T.bd}`, background: T.bg, color: T.tx, fontSize: 12, cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between" }}
-                    >
-                      <span>{m.name}</span>
-                      <span style={{ color: m.role === "officer" ? T.acl : T.txm, fontSize: 11 }}>{m.role}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </>
           ) : (
             <div style={{ textAlign: "center", padding: 20 }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>📧</div>
               <p style={{ color: T.tx, fontWeight: 600, marginBottom: 4 }}>Check your email</p>
               <p style={{ color: T.txm, fontSize: 13 }}>
                 We sent a magic link to <strong style={{ color: T.acl }}>{loginEmail}</strong>
@@ -142,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return <AuthContext.Provider value={{ user, logout, demoLogin }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, logout }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => {

@@ -1,10 +1,62 @@
+from datetime import datetime, timezone, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from api.dependencies import get_current_user, require_officer
 from api.models.schemas import InviteRequest, UserProfile
-from api.db import get_supabase_admin
+from api.db import get_supabase, get_supabase_admin
+from api.config import settings
 
 router = APIRouter()
+
+
+class LoginRequest(BaseModel):
+    email: str
+
+
+@router.post("/login")
+async def login(body: LoginRequest):
+    """
+    Authenticate by email.
+    - Local dev (DATABASE_URL set): returns JWT directly.
+    - Production (Supabase): sends magic link email.
+    """
+    if settings.use_local_db:
+        import jwt as pyjwt
+
+        sb = get_supabase()
+        result = (
+            sb.table("members")
+            .select("id, auth_id, name, email, role, chapter_id")
+            .eq("email", body.email)
+            .eq("status", "active")
+            .single()
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(404, "No active member with that email")
+
+        member = result.data
+        token = pyjwt.encode(
+            {"sub": member["auth_id"], "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+            settings.JWT_SECRET,
+            algorithm="HS256",
+        )
+        return {"access_token": token, "token_type": "bearer"}
+
+    # Production: send magic link via Supabase
+    try:
+        sb = get_supabase_admin()
+        sb.auth.admin.generate_link({
+            "type": "magiclink",
+            "email": body.email,
+            "options": {"redirect_to": settings.FRONTEND_URL},
+        })
+    except Exception:
+        pass
+
+    return {"message": "If an account exists, a magic link has been sent to your email."}
 
 
 @router.get("/me", response_model=UserProfile)

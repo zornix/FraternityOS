@@ -5,26 +5,24 @@ import { T } from "./lib/theme";
 import { Icon } from "./components/ui/icon";
 import { Avatar } from "./components/ui/avatar";
 import { Badge } from "./components/ui/badge";
-import { DashboardPage } from "./pages/dashboard";
-import { EventsPage } from "./pages/events";
-import { FinesPage } from "./pages/fines";
-import { MembersPage } from "./pages/members";
-import { DelinquencyPage } from "./pages/delinquency";
-import { MOCK_DB } from "./mocks/mock-db";
-import { CONFIG } from "./lib/config";
+import { DashboardPage } from "./views/dashboard";
+import { EventsPage } from "./views/events";
+import { FinesPage } from "./views/fines";
+import { MembersPage } from "./views/members";
+import { StandingPage } from "./views/standing";
 
-type PageId = "dashboard" | "events" | "fines" | "members" | "delinquency";
+type PageId = "dashboard" | "events" | "fines" | "members" | "standing";
 
 const NAV: { id: PageId; label: string; icon: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
   { id: "events", label: "Events", icon: "cal" },
   { id: "fines", label: "Fines", icon: "dollar" },
   { id: "members", label: "Members", icon: "users" },
-  { id: "delinquency", label: "Delinquency", icon: "shield" },
+  { id: "standing", label: "Standing", icon: "shield" },
 ];
 
 function AppShell() {
-  const { user, logout, demoLogin } = useAuth();
+  const { user, logout } = useAuth();
   const [page, setPage] = useState<PageId>("dashboard");
 
   return (
@@ -52,30 +50,6 @@ function AppShell() {
           ))}
         </nav>
         <div style={{ padding: 12, borderTop: `1px solid ${T.bd}` }}>
-          {CONFIG.USE_MOCKS && (
-            <>
-              <div style={{ fontSize: 10, color: T.txm, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Demo: Switch User</div>
-              <div style={{ display: "grid", gap: 3, marginBottom: 10 }}>
-                {MOCK_DB.members.slice(0, 4).map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => { demoLogin(m.id); setPage("dashboard"); }}
-                    style={{
-                      width: "100%", padding: "5px 8px", borderRadius: 6,
-                      border: user.id === m.id ? `1px solid ${T.ac}` : `1px solid ${T.bd}`,
-                      background: user.id === m.id ? T.ac + "22" : "transparent",
-                      color: user.id === m.id ? T.acl : T.txm,
-                      fontSize: 11, cursor: "pointer", textAlign: "left",
-                      display: "flex", justifyContent: "space-between",
-                    }}
-                  >
-                    <span>{m.name.split(" ")[0]}</span>
-                    <span style={{ opacity: 0.6 }}>{m.role === "officer" ? "⚙️" : ""}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px" }}>
             <Avatar name={user.name} size={28} />
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -98,7 +72,7 @@ function AppShell() {
           {page === "events" && <EventsPage />}
           {page === "fines" && <FinesPage />}
           {page === "members" && <MembersPage />}
-          {page === "delinquency" && <DelinquencyPage />}
+          {page === "standing" && <StandingPage />}
         </div>
       </div>
     </div>

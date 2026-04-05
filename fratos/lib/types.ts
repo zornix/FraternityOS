@@ -86,41 +86,14 @@ export interface InviteResult {
   failed: { email: string; error: string }[];
 }
 
-export interface DelinquencyScore {
+export interface MemberStanding {
   member_id: string;
   name: string;
   email: string;
-  score: number;
+  standing: "good_standing" | "warning" | "delinquent";
   attended: number;
-  excused: number;
-  missed: number;
   total_required: number;
+  unexcused_absences: number;
   unpaid_fines: number;
   unpaid_amount: number;
-}
-
-export interface EventBreakdown {
-  event_id: string;
-  event_title: string;
-  event_date: string;
-  status: "present" | "excused" | "excuse_pending" | "absent";
-  fine_amount: number | null;
-  fine_status: string | null;
-}
-
-export interface MemberDelinquencyDetail {
-  member: Pick<Member, "id" | "name" | "email">;
-  breakdown: EventBreakdown[];
-}
-
-export interface SecurityAssignment {
-  assigned: { member_id: string; name: string; score: number }[];
-}
-
-export interface ReminderResponse {
-  sent_to: string;
-  name: string;
-  unpaid_count: number;
-  unpaid_total: number;
-  message: string;
 }

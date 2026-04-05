@@ -1,13 +1,25 @@
-from supabase import create_client, Client
-
 from api.config import settings
 
+_pg_client = None
 
-def get_supabase() -> Client:
-    """Anon client — respects RLS, used with user JWT."""
+
+def _get_pg():
+    global _pg_client
+    if _pg_client is None:
+        from api.postgres_client import PostgresClient
+        _pg_client = PostgresClient(settings.DATABASE_URL, settings.JWT_SECRET)
+    return _pg_client
+
+
+def get_supabase():
+    if settings.use_local_db:
+        return _get_pg()
+    from supabase import create_client
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
 
-def get_supabase_admin() -> Client:
-    """Service role client — bypasses RLS, used for admin ops like invite."""
+def get_supabase_admin():
+    if settings.use_local_db:
+        return _get_pg()
+    from supabase import create_client
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)

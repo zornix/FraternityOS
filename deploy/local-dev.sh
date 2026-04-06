@@ -56,11 +56,7 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# ── 3. Migrations ───────────────────────────────────
-echo "▸ Running database migrations ..."
-DATABASE_URL="$LOCAL_DB_URL"
-
-# ── 4. Python dependencies ──────────────────────────
+# ── 3. Python dependencies ──────────────────────────
 echo "▸ Checking Python dependencies ..."
 if ! python3 -c "import fastapi" 2>/dev/null; then
   echo "  Installing Python dependencies ..."
@@ -68,7 +64,30 @@ if ! python3 -c "import fastapi" 2>/dev/null; then
 fi
 echo -e "  ${GREEN}Python deps OK${NC}"
 
-# ── 5. Node dependencies ───────────────────────────
+# ── 4. Migrations ───────────────────────────────────
+echo "▸ Running database migrations ..."
+DATABASE_URL="$LOCAL_DB_URL" python scripts/migrate_db.py
+echo -e "  ${GREEN}Migrations OK${NC}"
+
+# ── 5. Seed (first run only) ────────────────────────
+DB_HAS_DATA=$(DATABASE_URL="$LOCAL_DB_URL" python3 -c "
+import psycopg2
+conn = psycopg2.connect('$LOCAL_DB_URL')
+cur = conn.cursor()
+cur.execute('SELECT COUNT(*) FROM members')
+print(cur.fetchone()[0])
+conn.close()
+" 2>/dev/null || echo "0")
+
+if [ "$DB_HAS_DATA" = "0" ]; then
+  echo "▸ Seeding database with demo data ..."
+  DATABASE_URL="$LOCAL_DB_URL" python -m scripts.seed
+  echo -e "  ${GREEN}Seed OK${NC}"
+else
+  echo -e "  ${GREEN}Database already has data — skipping seed${NC}"
+fi
+
+# ── 6. Node dependencies ───────────────────────────
 echo "▸ Checking Node dependencies ..."
 if [ ! -d fratos/node_modules ]; then
   echo "  Installing frontend dependencies ..."
@@ -76,13 +95,13 @@ if [ ! -d fratos/node_modules ]; then
 fi
 echo -e "  ${GREEN}Node deps OK${NC}"
 
-# ── 6. Frontend env ────────────────────────────────
+# ── 7. Frontend env ────────────────────────────────
 if [ ! -f fratos/.env.local ]; then
   echo "NEXT_PUBLIC_API_BASE=http://127.0.0.1:8001" > fratos/.env.local
   echo -e "  ${GREEN}Created fratos/.env.local${NC}"
 fi
 
-# ── 7. Start backend ───────────────────────────────
+# ── 8. Start backend ───────────────────────────────
 echo ""
 echo "▸ Starting FastAPI backend on :8001 ..."
 uvicorn api.index:app --reload --host 0.0.0.0 --port 8001 &
@@ -96,7 +115,7 @@ else
   exit 1
 fi
 
-# ── 8. Start frontend ──────────────────────────────
+# ── 9. Start frontend ──────────────────────────────
 echo "▸ Starting Next.js frontend on :3000 ..."
 (cd fratos && npm run dev) &
 FRONTEND_PID=$!
@@ -110,6 +129,8 @@ echo "  Frontend:  http://localhost:3000"
 echo "  Backend:   http://localhost:8001"
 echo "  API docs:  http://localhost:8001/api/docs"
 echo "  Database:  localhost:5434 (fraternityos/localdev)"
+echo ""
+echo "  Login:  jake@tke.org  (officer)"
 echo ""
 echo "  Press Ctrl+C to stop all services"
 echo "═══════════════════════════════════════"

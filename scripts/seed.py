@@ -6,7 +6,6 @@ Run:  python -m scripts.seed
 
 import sys
 import os
-import uuid
 from datetime import datetime, timezone, timedelta, date, time
 
 import psycopg2
@@ -19,9 +18,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "local-dev-secret-key-change-in-prod")
 
 CHAPTER_ID = "00000000-0000-0000-0000-000000000001"
 OFFICER_ID = "00000000-0000-0000-0000-000000000010"
-OFFICER_AUTH_ID = "aaaaaaaa-0000-0000-0000-000000000010"
 MEMBER_IDS = [f"00000000-0000-0000-0000-0000000001{i:02d}" for i in range(1, 8)]
-MEMBER_AUTH_IDS = [f"aaaaaaaa-0000-0000-0000-0000000001{i:02d}" for i in range(1, 8)]
 
 EVENT_IDS = [f"00000000-0000-0000-0000-000000000e{i:02d}" for i in range(1, 6)]
 
@@ -85,8 +82,12 @@ EVENTS_DATA = [
 ]
 
 
-def generate_token(auth_id: str) -> str:
-    return jwt.encode({"sub": auth_id, "exp": datetime.now(timezone.utc) + timedelta(days=30)}, JWT_SECRET, algorithm="HS256")
+def generate_token(member_id: str) -> str:
+    return jwt.encode(
+        {"sub": member_id, "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+        JWT_SECRET,
+        algorithm="HS256",
+    )
 
 
 def seed():
@@ -103,13 +104,12 @@ def seed():
     )
 
     all_member_ids = [OFFICER_ID] + MEMBER_IDS
-    all_auth_ids = [OFFICER_AUTH_ID] + MEMBER_AUTH_IDS
 
     for i, m in enumerate(MEMBERS_DATA):
         cur.execute(
-            'INSERT INTO members (id, auth_id, chapter_id, name, email, phone, role, status) '
-            'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
-            (all_member_ids[i], all_auth_ids[i], CHAPTER_ID, m["name"], m["email"], m["phone"], m["role"], "active"),
+            'INSERT INTO members (id, chapter_id, name, email, phone, role, status) '
+            'VALUES (%s, %s, %s, %s, %s, %s, %s)',
+            (all_member_ids[i], CHAPTER_ID, m["name"], m["email"], m["phone"], m["role"], "active"),
         )
 
     for i, ev in enumerate(EVENTS_DATA):
@@ -136,14 +136,14 @@ def seed():
             (EVENT_IDS[1], mid, True, (now - timedelta(days=7)).isoformat(), "link"),
         )
 
-    # Excuse for event 2 - member 5 (Alex) has approved excuse
+    # Excuse for event 2 - Alex has approved excuse
     cur.execute(
         'INSERT INTO excuses (event_id, member_id, reason, status, reviewed_by, reviewed_at, submitted_at) '
         'VALUES (%s, %s, %s, %s, %s, %s, %s)',
         (EVENT_IDS[1], MEMBER_IDS[3], "Doctor appointment", "approved", OFFICER_ID, now.isoformat(), (now - timedelta(days=8)).isoformat()),
     )
 
-    # Pending excuse for event 2 - member 6 (Chris)
+    # Pending excuse for event 2 - Chris
     cur.execute(
         'INSERT INTO excuses (event_id, member_id, reason, status, submitted_at) VALUES (%s, %s, %s, %s, %s)',
         (EVENT_IDS[1], MEMBER_IDS[4], "Car broke down", "pending", (now - timedelta(days=7)).isoformat()),
@@ -186,21 +186,18 @@ def seed():
     print(f"\nMembers ({len(MEMBERS_DATA)}):")
     for i, m in enumerate(MEMBERS_DATA):
         mid = all_member_ids[i]
-        aid = all_auth_ids[i]
-        token = generate_token(aid)
+        token = generate_token(mid)
         role_tag = " [OFFICER]" if m["role"] == "officer" else ""
         print(f"  {m['name']}{role_tag}")
-        print(f"    id:    {mid}")
+        print(f"    email: {m['email']}")
         print(f"    phone: {m['phone']}")
         print(f"    token: {token[:40]}...")
-    print(f"\nOfficer token (full):")
-    print(f"  {generate_token(OFFICER_AUTH_ID)}")
-    print(f"\nMember token (Ryan, full):")
-    print(f"  {generate_token(MEMBER_AUTH_IDS[0])}")
+    print(f"\nLogin at http://localhost:3000 — use any member email above.")
+    print(f"Officer login: jake@tke.org (full access)")
     print(f"\nEvents: {len(EVENTS_DATA)} ({sum(1 for e in EVENTS_DATA if e['date'] <= date.today())} past, {sum(1 for e in EVENTS_DATA if e['date'] > date.today())} upcoming)")
-    print(f"Active checkin link: TsT123 (event: {EVENTS_DATA[3]['title']})")
-    print(f"\nFines: unpaid={4}, paid={1}")
-    print(f"Excuses: approved={1}, pending={1}")
+    print(f"Active checkin link: TsT123 → http://localhost:8001/c/TsT123")
+    print(f"Fines: unpaid=4, paid=1")
+    print(f"Excuses: approved=1, pending=1")
 
 
 if __name__ == "__main__":

@@ -118,6 +118,11 @@ class QueryBuilder:
         self._is_single = True
         return self
 
+    def maybe_single(self) -> QueryBuilder:
+        """Like single() but returns None instead of raising when no rows found."""
+        self._is_single = True
+        return self
+
     # ── execution ────────────────────────────────────────────────
 
     def execute(self) -> QueryResult:
@@ -396,6 +401,7 @@ class _TableAccessor:
             _pool=self._pool, _table=self._table,
             _op="upsert", _payload=data, _on_conflict=on_conflict,
         )
+
 
 
 class _LocalAuth:

@@ -20,7 +20,7 @@ async def get_current_user(authorization: str = Header(...)):
         .select("*, chapters(*)")
         .eq("auth_id", str(auth_user.id))
         .eq("status", "active")
-        .single()
+        .maybe_single()
         .execute()
     )
 

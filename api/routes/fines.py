@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_current_user, require_officer
+from api.services.fine_processor import process_event_fines
 from api.db import get_supabase
 
 router = APIRouter()
@@ -72,6 +73,27 @@ async def waive_fine(fine_id: str, officer=Depends(require_officer)):
     if not result.data:
         raise HTTPException(404, "Fine not found or already resolved")
     return result.data[0]
+
+
+@router.post("/process-event/{event_id}")
+async def process_fines_for_event(event_id: str, officer=Depends(require_officer)):
+    """Officer manually triggers fine processing for a specific event."""
+    sb = get_supabase()
+    event = (
+        sb.table("events")
+        .select("id, chapter_id, required")
+        .eq("id", event_id)
+        .eq("chapter_id", officer["chapter_id"])
+        .single()
+        .execute()
+    )
+    if not event.data:
+        raise HTTPException(404, "Event not found")
+    if not event.data["required"]:
+        raise HTTPException(400, "Event is not required — no fines to process")
+
+    fines = await process_event_fines(event_id)
+    return {"event_id": event_id, "fines_issued": len(fines)}
 
 
 @router.get("/summary")

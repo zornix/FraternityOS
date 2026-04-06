@@ -71,12 +71,21 @@ export function EventsPage() {
               {detail.fine_amount > 0 && <Badge color="red">${detail.fine_amount} fine</Badge>}
             </div>
           </div>
-          {!isPast && user.role === "officer" && (
+          {user.role === "officer" && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {!activeLink ? (
-                <Btn onClick={generateLink}><Icon type="link" size={14} /> Open Check-In</Btn>
-              ) : (
-                <Btn variant="danger" onClick={killLink}><Icon type="x" size={14} /> Close Check-In</Btn>
+              {!isPast && (
+                !activeLink ? (
+                  <Btn onClick={generateLink}><Icon type="link" size={14} /> Open Check-In</Btn>
+                ) : (
+                  <Btn variant="danger" onClick={killLink}><Icon type="x" size={14} /> Close Check-In</Btn>
+                )
+              )}
+              {isPast && detail.required && detail.fine_amount > 0 && (
+                <Btn variant="danger" onClick={async () => {
+                  const res = await api.processEventFines(detail.id);
+                  show(`${res.fines_issued} fine(s) issued`);
+                  attendance.reload();
+                }}><Icon type="dollar" size={14} /> Process Fines</Btn>
               )}
             </div>
           )}

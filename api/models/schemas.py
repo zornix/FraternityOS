@@ -83,37 +83,3 @@ class PhoneCheckIn(BaseModel):
         return digits
 
 
-class DelinquencyScore(BaseModel):
-    member_id: str
-    name: str
-    email: str
-    score: float
-    attended: int
-    excused: int
-    missed: int
-    total_required: int
-    unpaid_fines: int
-    unpaid_amount: float
-
-
-class EventBreakdownEntry(BaseModel):
-    event_id: str
-    event_title: str
-    event_date: str
-    status: str  # "present" | "excused" | "excuse_pending" | "absent"
-    fine_amount: Optional[float] = None
-    fine_status: Optional[str] = None
-
-
-class SecurityAssignment(BaseModel):
-    member_id: str
-    name: str
-    score: float
-
-
-class ReminderResponse(BaseModel):
-    sent_to: str
-    name: str
-    unpaid_count: int
-    unpaid_total: float
-    message: str

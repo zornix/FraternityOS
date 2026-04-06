@@ -4,17 +4,18 @@ Apply pending SQL migrations from migrations/*.sql in lexical order.
 
 Requires DATABASE_URL (e.g. postgresql://user:pass@host:port/dbname).
 
-Usage (from repo root):
+Usage:
   export DATABASE_URL=postgresql://...
   python scripts/migrate_db.py
 
-Tracks applied files in table schema_migrations (name = basename, e.g. 0001_initial_schema.sql).
+Tracks applied files in schema_migrations.
+Each migration file is executed as a whole to support Postgres DO $$ ... $$ blocks,
+functions, triggers, and other procedural SQL.
 """
 
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -32,31 +33,11 @@ def _database_url() -> str:
     return url
 
 
-def _strip_line_comments(text: str) -> str:
-    lines = []
-    for line in text.splitlines():
-        s = line.strip()
-        if s.startswith("--"):
-            continue
-        lines.append(line)
-    return "\n".join(lines)
-
-
-def _split_sql_statements(raw: str) -> list[str]:
-    """Split on semicolon followed by newline; sufficient for repo migration files."""
-    text = _strip_line_comments(raw).strip()
-    if not text:
-        return []
-    chunks = re.split(r";\s*\n", text)
-    out: list[str] = []
-    for chunk in chunks:
-        c = chunk.strip()
-        if not c:
-            continue
-        if not c.endswith(";"):
-            c = c + ";"
-        out.append(c)
-    return out
+def _read_sql(path: Path) -> str:
+    sql = path.read_text(encoding="utf-8").strip()
+    if not sql:
+        return ""
+    return sql
 
 
 def _ensure_migrations_table(cur) -> None:
@@ -77,6 +58,7 @@ def _applied_names(cur) -> set[str]:
 
 def main() -> None:
     url = _database_url()
+
     if not MIGRATIONS_DIR.is_dir():
         print(f"error: migrations directory missing: {MIGRATIONS_DIR}", file=sys.stderr)
         sys.exit(1)
@@ -87,8 +69,10 @@ def main() -> None:
         sys.exit(1)
 
     conn = psycopg2.connect(url)
+
     try:
         conn.autocommit = False
+
         with conn.cursor() as cur:
             _ensure_migrations_table(cur)
         conn.commit()
@@ -102,25 +86,27 @@ def main() -> None:
             return
 
         for path in pending:
-            raw = path.read_text(encoding="utf-8")
-            statements = _split_sql_statements(raw)
-            if not statements:
+            sql = _read_sql(path)
+            if not sql:
                 print(f"skip empty migration: {path.name}")
                 continue
-            with conn.cursor() as cur:
-                for stmt in statements:
-                    cur.execute(stmt)
-                cur.execute(
-                    "INSERT INTO schema_migrations (name) VALUES (%s)",
-                    (path.name,),
-                )
-            conn.commit()
-            print(f"applied: {path.name}")
+
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    cur.execute(
+                        "INSERT INTO schema_migrations (name) VALUES (%s)",
+                        (path.name,),
+                    )
+                conn.commit()
+                print(f"applied: {path.name}")
+            except Exception:
+                conn.rollback()
+                print(f"failed: {path.name}", file=sys.stderr)
+                raise
 
         print("done.")
-    except Exception:
-        conn.rollback()
-        raise
+
     finally:
         conn.close()
 

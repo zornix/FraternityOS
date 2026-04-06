@@ -1,4 +1,4 @@
-You are a senior full-stack engineer and product-focused technical lead. You are working inside my existing FraternityOS codebase. Your job is to aggressively reduce scope, isolate deferred features, and leave me with a clean MVP that is deployable to Vercel and testable against a local Postgres/Supabase-backed setup.
+You are a senior full-stack engineer and product-focused technical lead. You are working inside my existing FraternityOS codebase. Your job is to aggressively reduce scope, isolate deferred features, and leave me with a clean MVP that is deployable to Vercel and testable against a local Postgres-backed setup.
 
 You must operate with a “ship the smallest useful product” mindset.
 
@@ -15,11 +15,114 @@ Build and leave production-ready only this MVP:
 5. Phone-based member check-in
 6. Attendance roster per event
 7. Excuse submit + approve/deny
-8. Fine generation / fine management
-9. Simple member standing based on explicit rules, not a weighted delinquency score
-10. Vercel deployment readiness
+8. Automatic fine administration based on attendance
+9. Simple member standing based on attendance
+10. Vercel deployment readiness:
+Refactor the repo into deferred and prod folders.
+In prod:
+fraternityos/
+  apps/
+    web/                  # Next.js frontend
+    api/                  # FastAPI backend
+  packages/
+    ui/                   # shared React UI components
+    config/               # shared tsconfig/eslint/prettier/env helpers
+    types/                # shared DTOs / API contract types
+  infra/
+    docker/
+    scripts/
+  .github/
+  turbo.json
+  package.json
+  pnpm-workspace.yaml
+  README.md
 
-Everything else is deferred.
+Create a clear backend API surface:
+/api/v1/auth/*
+/api/v1/members/*
+/api/v1/attendance/*
+/api/v1/excuses/*
+/api/v1/fines/*
+
+
+Then on the frontend:
+
+one API client layer
+one place for base URL config
+one place for auth token/cookie handling
+one place for typed response parsing
+
+Do not let React components call raw endpoints all over the codebase.
+
+A good shape is:
+
+apps/web/src/lib/api/client.ts
+apps/web/src/lib/api/attendance.ts
+apps/web/src/lib/api/fines.ts
+
+That way UI stays decoupled from deployment details.
+
+For the FastAPI project, keep the app entrypoint in one of Vercel’s supported locations such as app.py, index.py, server.py, or src/index.py.
+
+
+Keep one source of truth in the backend:
+
+apps/api/
+  alembic/
+  app/
+    models/
+    schemas/
+    services/
+
+Use:
+
+SQLAlchemy models for persistence
+Pydantic schemas for request/response
+service layer for business logic
+
+Do not put business logic in route handlers.
+
+For example:
+
+attendance_service.py
+fine_service.py
+excuse_service.py
+
+This will matter a lot because fraternity logic gets messy fast:
+
+excuse approved but already fined
+attendance scanned twice
+member status inactive but billed
+manual fine override after payment
+
+Refactor into modules, not by random file type.
+
+Backend module structure
+app/
+  core/          # settings, auth, db, dependencies
+  modules/
+    members/
+    attendance/
+    fines/
+    excuses/
+    tasks/
+
+Each module should contain:
+
+router
+schemas
+models
+service
+repository if needed
+
+That makes future extraction possible if the system grows.
+
+Do not import backend logic concepts directly into frontend structure. Share only stable DTO/type shapes.
+
+Only extract shared code when duplicated twice or more.
+
+Fraternity ops software has infinite feature creep. Attendance + excuses + fines alone is enough for a credible first deployment.
+
 
 ==================================================
 IMPORTANT STRATEGIC RULES
@@ -28,7 +131,6 @@ IMPORTANT STRATEGIC RULES
 - Do not expand scope.
 - Do not preserve unfinished complexity just because it already exists.
 - Prefer deletion, hiding, or moving code over “keeping future flexibility.”
-- Keep the standalone FastAPI-served phone check-in page. Do NOT migrate it into React.
 - Optimize for the fastest path to a working deployed MVP.
 - Assume a small chapter-sized dataset. Optimize for simplicity, reliability, and clean UX, not premature scale.
 - Leave the codebase cleaner than you found it.
@@ -95,22 +197,22 @@ PHASE 3 — CREATE THE REAL MVP
 The active product after refactor must contain only:
 
 A. AUTH
-- officer login flow that works for MVP
+- officer email login flow that works for MVP
 - remove demo auth and mock auth from the active runtime path
-- wire the real auth/session path so the frontend talks to the real backend
+- wire the real auth/session path so the frontend talks to the real backend (two vercel projects)
 - ensure API requests include auth token where needed
 
 B. MEMBERS
 - active member roster page
 - simple role display
 - only functionality needed for MVP
-- optional role change only if already stable and low-risk
+- exec has role change ability
 
 C. EVENTS
 - list events
 - create event
 - view event detail
-- update/delete only if already stable and clean
+- update/delete
 - check-in link open/close
 - clear event detail page as operations hub
 
@@ -140,15 +242,6 @@ For MVP, use simple explicit standing rules, such as:
 - warning
 - delinquent
 
-Implement standing using easy-to-explain business rules, for example:
-- delinquent if unpaid fines exist past threshold
-- delinquent if too many unexcused absences
-- warning if one unresolved issue
-- otherwise good standing
-
-If existing delinquency code is deeply embedded, simplify it instead of preserving the full weighted score experience.
-Remove score-heavy UI from the active MVP surface.
-
 PHASE 4 — REMOVE MOCK MODE FROM ACTIVE PRODUCT
 - remove or disable mock-mode code paths from the active runtime
 - keep mock code only if safely archived in deferred or clearly separated for dev use
@@ -172,7 +265,7 @@ Required:
 - verify phone check-in page still works when deployed
 
 PHASE 6 — LOCAL TESTING READINESS
-Assume I will test on a local Postgres/Supabase-backed setup first.
+Assume I will test on a local Postgres  setup first.
 
 Do what is necessary so that:
 - local env setup is obvious
@@ -208,9 +301,9 @@ Performance:
 Code quality:
 - consistent naming
 - delete dead code where confidence is high
-- leave comments only where they add operational clarity
+- leave comments where they add operational clarity
 - no TODO spam
-- no half-connected UI
+- no UI that is disconnected from the backend
 
 ==================================================
 EXPECTED OUTPUTS
@@ -247,4 +340,4 @@ CONSTRAINTS
 - Do not preserve deferred features in the main navigation or main route registration.
 - Do not leave the repo in a partially broken state.
 
-Start by auditing the repo and then make the refactor.
+Start by auditing the repo and then make the refactor, when I say "begin".

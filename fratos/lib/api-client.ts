@@ -10,13 +10,13 @@ import type {
   MemberStanding,
 } from "./types";
 
-/** When unset, same-origin `/api` works on Vercel. In local dev, Next.js is on :3000 and the API is on :8000. */
+/** When unset, same-origin `/api` works on Vercel. In local dev, Next.js is on :3000 and the API is on :8001. */
 function apiBase(): string {
   const explicit = process.env.NEXT_PUBLIC_API_BASE;
   if (explicit) return explicit;
   if (typeof window !== "undefined") {
     const h = window.location.hostname;
-    if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
+    if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8001";
   }
   return "";
 }
@@ -57,7 +57,7 @@ class ApiClient {
       data = text ? JSON.parse(text) : {};
     } catch {
       throw new Error(
-        `API returned non-JSON (${res.status}). For local dev, run the FastAPI server on port 8000 or set NEXT_PUBLIC_API_BASE.`,
+        `API returned non-JSON (${res.status}). For local dev, run the FastAPI server on port 8001 or set NEXT_PUBLIC_API_BASE.`,
       );
     }
     if (!res.ok) throw new Error((data as { detail?: string }).detail || "Request failed");
@@ -150,10 +150,21 @@ class ApiClient {
   getFineSummary() {
     return this.request<FineSummary>("/api/fines/summary");
   }
+  processEventFines(eventId: string) {
+    return this.request<{ event_id: string; fines_issued: number }>(
+      `/api/fines/process-event/${eventId}`,
+      { method: "POST" },
+    );
+  }
 
   // Members
   getMembers() {
     return this.request<Member[]>("/api/members");
+  }
+  updateRole(memberId: string, role: string) {
+    return this.request<Member>(`/api/members/${memberId}/role?role=${role}`, {
+      method: "PUT",
+    });
   }
 
   // Standing

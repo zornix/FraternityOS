@@ -1,3 +1,10 @@
+# Root npm artifacts (deps live under fratos/)
+/node_modules/
+
+# Local secrets (connection strings, keys); keep only .gitkeep tracked
+secrets/*
+!secrets/.gitkeep
+
 # Python
 __pycache__/
 *.pyc

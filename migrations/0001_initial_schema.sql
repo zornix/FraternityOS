@@ -1,5 +1,5 @@
--- FraternityOS local schema (mirrors Supabase production)
--- Loaded automatically by docker-entrypoint-initdb.d
+-- 0001_initial_schema — FraternityOS MVP tables (local Postgres / Supabase-compatible)
+-- Applied by scripts/migrate_db.py; also used for fresh Docker volumes via docker-compose.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 

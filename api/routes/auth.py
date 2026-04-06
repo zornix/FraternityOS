@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,6 +10,7 @@ from api.db import get_supabase, get_supabase_admin
 from api.config import settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -45,16 +47,32 @@ async def login(body: LoginRequest):
         )
         return {"access_token": token, "token_type": "bearer"}
 
-    # Production: send magic link via Supabase
+    # Production: send magic link email via GoTrue.
+    # admin.generate_link() only *builds* a URL for custom mailers — it does not send email.
+    sb_admin = get_supabase_admin()
+    member = (
+        sb_admin.table("members")
+        .select("id")
+        .eq("email", body.email)
+        .eq("status", "active")
+        .maybe_single()
+        .execute()
+    )
+    if not member.data:
+        # Same opaque response whether missing member or not (avoid email enumeration).
+        return {"message": "If an account exists, a magic link has been sent to your email."}
+
     try:
-        sb = get_supabase_admin()
-        sb.auth.admin.generate_link({
-            "type": "magiclink",
+        sb = get_supabase()
+        sb.auth.sign_in_with_otp({
             "email": body.email,
-            "options": {"redirect_to": settings.FRONTEND_URL},
+            "options": {
+                "email_redirect_to": settings.FRONTEND_URL,
+                "should_create_user": True,
+            },
         })
     except Exception:
-        pass
+        logger.exception("sign_in_with_otp failed for %s", body.email)
 
     return {"message": "If an account exists, a magic link has been sent to your email."}
 

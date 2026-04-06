@@ -66,7 +66,7 @@ class ApiClient {
 
   // Auth
   login(email: string) {
-    return this.request<{ access_token?: string; message?: string }>("/api/auth/login", {
+    return this.request<{ access_token?: string; message?: string; ok?: boolean }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email }),
     });

@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +9,6 @@ from api.db import get_supabase, get_supabase_admin
 from api.config import settings
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -22,7 +20,7 @@ async def login(body: LoginRequest):
     """
     Authenticate by email.
     - Local dev (DATABASE_URL set): returns JWT directly.
-    - Production (Supabase): sends magic link email.
+    - Production (Supabase): returns ok:true so the browser sends the magic link (PKCE).
     """
     if settings.use_local_db:
         import jwt as pyjwt
@@ -59,22 +57,20 @@ async def login(body: LoginRequest):
         .execute()
     )
     if not member.data:
-        # Same opaque response whether missing member or not (avoid email enumeration).
-        return {"message": "If an account exists, a magic link has been sent to your email."}
+        # Same message whether missing member or not (avoid email enumeration).
+        # `ok: false` means do not start a browser OTP flow (no verifier was created).
+        return {
+            "message": "If an account exists, a magic link has been sent to your email.",
+            "ok": False,
+        }
 
-    try:
-        sb = get_supabase()
-        sb.auth.sign_in_with_otp({
-            "email": body.email,
-            "options": {
-                "email_redirect_to": settings.FRONTEND_URL,
-                "should_create_user": True,
-            },
-        })
-    except Exception:
-        logger.exception("sign_in_with_otp failed for %s", body.email)
-
-    return {"message": "If an account exists, a magic link has been sent to your email."}
+    # Magic link must be started in the same browser that opens the email link.
+    # Server-side sign_in_with_otp + PKCE puts ?code= in the URL but no code_verifier
+    # in this browser, so exchange fails and the user stays on the login screen.
+    return {
+        "message": "If an account exists, a magic link has been sent to your email.",
+        "ok": True,
+    }
 
 
 @router.get("/me", response_model=UserProfile)

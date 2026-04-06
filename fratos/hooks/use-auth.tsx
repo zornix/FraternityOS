@@ -3,6 +3,8 @@ import { useState, useEffect, createContext, useContext, type ReactNode } from "
 import { api } from "../lib/api-client";
 import { T } from "../lib/theme";
 import type { Member } from "../lib/types";
+import { createClient } from "@/utils/supabase/client";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/utils/supabase/env";
 
 interface AuthContextValue {
   user: Member;
@@ -20,28 +22,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
-    // Check URL hash for Supabase magic link redirect tokens
-    if (typeof window !== "undefined" && window.location.hash) {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = params.get("access_token");
-      if (accessToken) {
-        api.setToken(accessToken);
-        window.history.replaceState(null, "", window.location.pathname);
+    let cancelled = false;
+
+    async function initSession() {
+      if (typeof window === "undefined") {
+        setLoading(false);
+        return;
       }
+
+      const pageUrl = new URL(window.location.href);
+
+      // Implicit grant: tokens in hash (avoid letting PKCE client choke on hash before we read it)
+      if (window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = params.get("access_token");
+        if (accessToken) {
+          api.setToken(accessToken);
+          window.history.replaceState(null, "", pageUrl.pathname + pageUrl.search);
+        }
+      }
+
+      const supabaseConfigured = Boolean(getSupabaseUrl() && getSupabaseAnonKey());
+      if (supabaseConfigured) {
+        try {
+          const supabase = createClient();
+          const code = pageUrl.searchParams.get("code");
+          if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error && !cancelled) {
+              setLoginError(error.message);
+            }
+            pageUrl.searchParams.delete("code");
+            window.history.replaceState(null, "", pageUrl.pathname + pageUrl.search);
+          }
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!cancelled && session?.access_token) {
+            api.setToken(session.access_token);
+          }
+        } catch {
+          // Misconfigured public env; fall through to any legacy api token only.
+        }
+      }
+
+      const token = api.getToken();
+      if (token) {
+        try {
+          const me = await api.getMe();
+          if (!cancelled) setUser(me);
+        } catch {
+          if (!cancelled) {
+            api.setToken(null);
+            setLoginError(
+              "Signed in with Supabase, but the API rejected your session. Link members.auth_id to your user (migrations/0002_link_members_auth_id.sql) or confirm you are an active member.",
+            );
+          }
+        }
+      }
+      if (!cancelled) setLoading(false);
     }
 
-    // Try to load session from stored token
-    const token = api.getToken();
-    if (token) {
-      api.getMe()
-        .then(setUser)
-        .catch(() => {
-          api.setToken(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    void initSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogin = async (email: string) => {
@@ -50,12 +95,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.login(email);
       if (res.access_token) {
-        // Local dev mode: got token directly
+        // Local dev (DATABASE_URL): JWT returned directly
         api.setToken(res.access_token);
         const me = await api.getMe();
         setUser(me);
+      } else if (res.ok === true) {
+        // Supabase production: OTP must run in this browser so PKCE verifier exists
+        if (!getSupabaseUrl() || !getSupabaseAnonKey()) {
+          setLoginError(
+            "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY (or publishable key).",
+          );
+          return;
+        }
+        const supabase = createClient();
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            emailRedirectTo: window.location.origin,
+            shouldCreateUser: true,
+          },
+        });
+        if (error) {
+          setLoginError(error.message);
+          return;
+        }
+        setLoginSent(true);
       } else {
-        // Production: magic link sent
+        // Member not found (opaque UX)
         setLoginSent(true);
       }
     } catch (e) {
@@ -65,7 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      if (typeof window !== "undefined" && getSupabaseUrl() && getSupabaseAnonKey()) {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      }
+    } catch {
+      /* ignore */
+    }
     setUser(null);
     api.setToken(null);
     setLoginSent(false);

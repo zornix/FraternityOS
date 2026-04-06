@@ -18,59 +18,33 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 async def login(body: LoginRequest):
     """
-    Authenticate by email.
-    - Local dev (DATABASE_URL set): returns JWT directly.
-    - Production (Supabase): returns ok:true so the browser sends the magic link (PKCE).
+    Demo auth: officer enters email, backend verifies email exists with role=officer.
+    Returns a JWT directly — no password, no magic link.
     """
-    if settings.use_local_db:
-        import jwt as pyjwt
+    import jwt as pyjwt
 
-        sb = get_supabase()
-        result = (
-            sb.table("members")
-            .select("id, auth_id, name, email, role, chapter_id")
-            .eq("email", body.email)
-            .eq("status", "active")
-            .single()
-            .execute()
-        )
-        if not result.data:
-            raise HTTPException(404, "No active member with that email")
-
-        member = result.data
-        token = pyjwt.encode(
-            {"sub": member["auth_id"], "exp": datetime.now(timezone.utc) + timedelta(days=30)},
-            settings.JWT_SECRET,
-            algorithm="HS256",
-        )
-        return {"access_token": token, "token_type": "bearer"}
-
-    # Production: send magic link email via GoTrue.
-    # admin.generate_link() only *builds* a URL for custom mailers — it does not send email.
-    sb_admin = get_supabase_admin()
-    member = (
-        sb_admin.table("members")
-        .select("id")
+    sb = get_supabase()
+    result = (
+        sb.table("members")
+        .select("id, name, email, role, chapter_id")
         .eq("email", body.email)
         .eq("status", "active")
-        .maybe_single()
+        .single()
         .execute()
     )
-    if not member.data:
-        # Same message whether missing member or not (avoid email enumeration).
-        # `ok: false` means do not start a browser OTP flow (no verifier was created).
-        return {
-            "message": "If an account exists, a magic link has been sent to your email.",
-            "ok": False,
-        }
+    if not result.data:
+        raise HTTPException(401, "No active member found with that email")
 
-    # Magic link must be started in the same browser that opens the email link.
-    # Server-side sign_in_with_otp + PKCE puts ?code= in the URL but no code_verifier
-    # in this browser, so exchange fails and the user stays on the login screen.
-    return {
-        "message": "If an account exists, a magic link has been sent to your email.",
-        "ok": True,
-    }
+    member = result.data
+    if member["role"] != "officer":
+        raise HTTPException(403, "Officer access only. Contact your chapter officers.")
+
+    token = pyjwt.encode(
+        {"sub": member["id"], "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+        settings.JWT_SECRET,
+        algorithm="HS256",
+    )
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserProfile)

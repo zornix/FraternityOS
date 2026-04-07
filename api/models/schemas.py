@@ -78,8 +78,8 @@ class PhoneCheckIn(BaseModel):
     @classmethod
     def validate_phone(cls, v: str) -> str:
         digits = re.sub(r"\D", "", v)
-        if len(digits) != 9:
-            raise ValueError("Phone number must be 9 digits")
+        if len(digits) != 10:
+            raise ValueError("Phone number must be 10 digits")
         return digits
 
 

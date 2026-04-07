@@ -53,12 +53,9 @@ export function FinesPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: f.status === "unpaid" ? T.err : T.txm }}>${f.amount}</div>
                 <Badge color={f.status === "paid" ? "green" : f.status === "waived" ? "blue" : "red"}>{f.status}</Badge>
-                {f.status === "unpaid" && (
+                {f.status === "unpaid" && user.role === "officer" && (
                   <div style={{ display: "flex", gap: 4, marginLeft: 4 }}>
-                    <Btn variant="success" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => api.payFine(f.id).then(() => { fines.reload(); show("Paid"); })}>Pay</Btn>
-                    {user.role === "officer" && (
-                      <Btn variant="ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => api.waiveFine(f.id).then(() => { fines.reload(); show("Waived"); })}>Waive</Btn>
-                    )}
+                    <Btn variant="ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => api.waiveFine(f.id).then(() => { fines.reload(); show("Waived"); })}>Waive</Btn>
                   </div>
                 )}
               </div>

@@ -17,7 +17,10 @@ function standingBadge(standing: string) {
 
 export function StandingPage() {
   const { user } = useAuth();
-  const standings = useApi<MemberStanding[]>(() => api.getStandings());
+  const standings = useApi<MemberStanding[]>(
+    () => (user.role === "officer" ? api.getStandings() : Promise.resolve([])),
+    [user.role],
+  );
 
   if (user.role !== "officer") {
     return (

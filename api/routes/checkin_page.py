@@ -12,7 +12,7 @@ async def checkin_page(short_code: str):
     """
     GET /c/A7x9Kp -> serves a lightweight HTML check-in page.
 
-    Members enter their 9-digit phone number to check in.
+    Members enter their 10-digit phone number to check in.
     No Supabase session or JWT required.
     """
     link_data = await validate_checkin_link(short_code)
@@ -74,15 +74,15 @@ async def checkin_page(short_code: str):
                     class="phone-input"
                     type="tel"
                     inputmode="numeric"
-                    maxlength="11"
-                    placeholder="123-456-789"
+                    maxlength="12"
+                    placeholder="555-123-4567"
                     autocomplete="off"
                     required
                 />
                 <button id="submit-btn" class="btn" type="submit" disabled>
                     Check In
                 </button>
-                <p class="hint">Enter your 9-digit phone number</p>
+                <p class="hint">Enter your 10-digit phone number</p>
             </form>
 
             <div id="status" class="status"></div>
@@ -96,7 +96,7 @@ async def checkin_page(short_code: str):
             const statusEl = document.getElementById('status');
 
             function formatPhone(raw) {{
-                const d = raw.replace(/\\D/g, '').slice(0, 9);
+                const d = raw.replace(/\\D/g, '').slice(0, 10);
                 if (d.length <= 3) return d;
                 if (d.length <= 6) return d.slice(0,3) + '-' + d.slice(3);
                 return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
@@ -113,13 +113,13 @@ async def checkin_page(short_code: str):
                 const after = this.value.length;
                 const newPos = pos + (after - before);
                 this.setSelectionRange(newPos, newPos);
-                submitBtn.disabled = getDigits().length !== 9;
+                submitBtn.disabled = getDigits().length !== 10;
             }});
 
             form.addEventListener('submit', async function(e) {{
                 e.preventDefault();
                 const digits = getDigits();
-                if (digits.length !== 9) return;
+                if (digits.length !== 10) return;
 
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Checking in...';
@@ -139,7 +139,15 @@ async def checkin_page(short_code: str):
 
                     if (res.ok) {{
                         statusEl.className = 'status success';
-                        statusEl.textContent = "You're checked in!";
+                        statusEl.style.display = 'block';
+                        statusEl.textContent = '';
+                        const line1 = document.createElement('div');
+                        line1.textContent = 'You successfully signed in for this event.';
+                        const line2 = document.createElement('div');
+                        line2.style.cssText = 'font-size:13px;font-weight:500;opacity:0.92;margin-top:10px;';
+                        line2.textContent = (data && data.event_title) ? data.event_title : '{event['title']}';
+                        statusEl.appendChild(line1);
+                        statusEl.appendChild(line2);
                         form.style.display = 'none';
                     }} else {{
                         statusEl.className = 'status error';

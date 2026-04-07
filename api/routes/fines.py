@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_current_user, require_officer
@@ -31,27 +29,6 @@ async def list_fines(status: str = None, user=Depends(get_current_user)):
         query = query.eq("status", status)
 
     return query.order("issued_at", desc=True).execute().data
-
-
-@router.post("/{fine_id}/pay")
-async def pay_fine(fine_id: str, user=Depends(get_current_user)):
-    """Mark a fine as paid."""
-    sb = get_supabase()
-    result = (
-        sb.table("fines")
-        .update({
-            "status": "paid",
-            "paid_at": datetime.now(timezone.utc).isoformat(),
-        })
-        .eq("id", fine_id)
-        .eq("member_id", user["id"])
-        .eq("status", "unpaid")
-        .select("*")
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(404, "Fine not found or already resolved")
-    return result.data[0]
 
 
 @router.post("/{fine_id}/waive")

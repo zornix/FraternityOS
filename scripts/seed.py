@@ -23,14 +23,14 @@ MEMBER_IDS = [f"00000000-0000-0000-0000-0000000001{i:02d}" for i in range(1, 8)]
 EVENT_IDS = [f"00000000-0000-0000-0000-000000000e{i:02d}" for i in range(1, 6)]
 
 MEMBERS_DATA = [
-    {"name": "Jake Martinez", "email": "jake@tke.org", "phone": "555111001", "role": "officer"},
-    {"name": "Ryan Chen", "email": "ryan@tke.org", "phone": "555111002", "role": "member"},
-    {"name": "Tyler Brooks", "email": "tyler@tke.org", "phone": "555111003", "role": "member"},
-    {"name": "Marcus Johnson", "email": "marcus@tke.org", "phone": "555111004", "role": "member"},
-    {"name": "Alex Rivera", "email": "alex@tke.org", "phone": "555111005", "role": "member"},
-    {"name": "Chris Park", "email": "chris@tke.org", "phone": "555111006", "role": "member"},
-    {"name": "Ethan Davis", "email": "ethan@tke.org", "phone": "555111007", "role": "member"},
-    {"name": "Noah Williams", "email": "noah@tke.org", "phone": "555111008", "role": "member"},
+    {"name": "Jake Martinez", "email": "jake@tke.org", "phone": "5551110001", "role": "officer"},
+    {"name": "Ryan Chen", "email": "ryan@tke.org", "phone": "5551110002", "role": "member"},
+    {"name": "Tyler Brooks", "email": "tyler@tke.org", "phone": "5551110003", "role": "member"},
+    {"name": "Marcus Johnson", "email": "marcus@tke.org", "phone": "5551110004", "role": "member"},
+    {"name": "Alex Rivera", "email": "alex@tke.org", "phone": "5551110005", "role": "member"},
+    {"name": "Chris Park", "email": "chris@tke.org", "phone": "5551110006", "role": "member"},
+    {"name": "Ethan Davis", "email": "ethan@tke.org", "phone": "5551110007", "role": "member"},
+    {"name": "Noah Williams", "email": "noah@tke.org", "phone": "5551110008", "role": "member"},
 ]
 
 EVENTS_DATA = [

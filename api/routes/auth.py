@@ -3,8 +3,8 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.dependencies import get_current_user
-from api.models.schemas import UserProfile
+from api.dependencies import get_current_user, require_officer
+from api.models.schemas import UserProfile, InviteRequest
 from api.db import get_supabase
 from api.config import settings
 
@@ -55,5 +55,35 @@ async def get_me(user=Depends(get_current_user)):
         "email": user["email"],
         "role": user["role"],
         "chapter_id": user["chapter_id"],
-        "chapter_name": user.get("chapters", {}).get("name"),
+        "chapter_name": (user.get("chapters") or {}).get("name"),
     }
+
+
+@router.post("/invite")
+async def invite_members(body: InviteRequest, officer=Depends(require_officer)):
+    """Add new chapter members by email (active, role member). Duplicate emails are reported in failed."""
+    sb = get_supabase()
+    invited: list[str] = []
+    failed: list[dict] = []
+    chapter_id = officer["chapter_id"]
+
+    for raw in body.emails:
+        email = str(raw).strip().lower()
+        local = email.split("@", 1)[0]
+        name = local.replace(".", " ").replace("_", " ").strip().title() or "Member"
+        try:
+            result = sb.table("members").insert({
+                "chapter_id": chapter_id,
+                "name": name,
+                "email": email,
+                "role": "member",
+                "status": "active",
+            }).execute()
+            if result.data:
+                invited.append(email)
+            else:
+                failed.append({"email": email, "error": "Insert failed"})
+        except Exception as exc:
+            failed.append({"email": email, "error": str(exc)})
+
+    return {"invited": invited, "failed": failed}

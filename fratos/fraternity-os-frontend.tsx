@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { T } from "./lib/theme";
 import { Icon } from "./components/ui/icon";
@@ -25,6 +25,12 @@ function AppShell() {
   const { user, logout } = useAuth();
   const [page, setPage] = useState<PageId>("dashboard");
 
+  const navItems = NAV.filter((n) => n.id !== "standing" || user.role === "officer");
+
+  useEffect(() => {
+    if (page === "standing" && user.role !== "officer") setPage("dashboard");
+  }, [page, user.role]);
+
   return (
     <div style={{ display: "flex", height: "100vh", background: T.bg, fontFamily: "'Inter', -apple-system, sans-serif", color: T.tx, overflow: "hidden" }}>
       <div style={{ width: 220, background: T.sf, borderRight: `1px solid ${T.bd}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
@@ -33,7 +39,7 @@ function AppShell() {
           <div style={{ fontSize: 10, color: T.txm, marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>Operations Platform</div>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px" }}>
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <button
               key={n.id}
               onClick={() => setPage(n.id)}

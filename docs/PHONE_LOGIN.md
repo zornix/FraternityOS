@@ -1,6 +1,6 @@
 # Phone-Number Check-In — Design Document
 
-Last updated: 2026-04-04
+Last updated: 2026-04-06
 
 ---
 
@@ -20,7 +20,7 @@ creates friction and drop-off.
 ## Solution
 
 Replace the session-based check-in with a phone-number-only flow. Members enter
-their 9-digit phone number on the check-in page to instantly record attendance.
+their 10-digit phone number on the check-in page to instantly record attendance.
 
 The check-in link itself acts as the location proof (short TTL, officer-controlled),
 and the phone number acts as the identity proof (must match a registered member in
@@ -34,7 +34,7 @@ the chapter).
 2. Officer shares the link `/c/{code}` (verbally, QR code, or group chat)
 3. Member opens link on their phone
 4. Page displays: event title, date, location, and a phone number input
-5. Member types their 9-digit number (auto-formatted as XXX-XXX-XXX)
+5. Member types their 10-digit number (auto-formatted as XXX-XXX-XXXX)
 6. Taps "Check In"
 7. Sees "You're checked in!" (green) or an error message (red)
 
@@ -60,7 +60,7 @@ POST /api/attendance/checkin/{short_code}/phone
 
 **Request body:**
 ```json
-{ "phone": "123456789" }
+{ "phone": "5551234567" }
 ```
 
 **No authentication header required.**
@@ -69,7 +69,7 @@ POST /api/attendance/checkin/{short_code}/phone
 
 1. **Pydantic validation** (`PhoneCheckIn` model):
    - `field_validator("phone")` strips all non-digit characters via `re.sub(r"\D", "", v)`
-   - Enforces exactly 9 digits after stripping (raises `ValueError` → 422 if not)
+   - Enforces exactly 10 digits after stripping (raises `ValueError` → 422 if not)
    - Returns the cleaned digit-only string
 
 2. **Link validation** (`validate_checkin_link(short_code)`):
@@ -106,13 +106,13 @@ POST /api/attendance/checkin/{short_code}/phone
 | 410 | Link expired or invalid | Link not found, `active=false`, or `expires_at` passed |
 | 404 | No member found | Phone number doesn't match any active member in this chapter |
 | 409 | Already checked in | Member already has `checked_in=true` for this event |
-| 422 | Validation failed | Phone number is not exactly 9 digits after stripping |
+| 422 | Validation failed | Phone number is not exactly 10 digits after stripping |
 
 ### Schema model
 
 `PhoneCheckIn` in `api/models/schemas.py`:
 - Accepts `phone` as string
-- `field_validator` strips non-digit characters, enforces exactly 9 digits
+- `field_validator` strips non-digit characters, enforces exactly 10 digits
 - The cleaned value is what gets stored and queried — no formatting in the database
 
 ---
@@ -133,9 +133,9 @@ It does **not** use React, Next.js, or the Supabase JS SDK.
 ### Key elements
 
 - Phone input with `inputmode="numeric"` — triggers number pad on mobile
-- `maxlength="11"` — allows for formatted input (XXX-XXX-XXX = 11 chars with dashes)
-- Auto-formatting as user types: `123` → `123-456` → `123-456-789`
-- Submit button starts disabled, enables when exactly 9 digits are entered
+- `maxlength="12"` — allows for formatted input (XXX-XXX-XXXX = 12 chars with dashes)
+- Auto-formatting as user types: `555` → `555-123` → `555-123-4567`
+- Submit button starts disabled, enables when exactly 10 digits are entered
 - On submit: `fetch()` POST to the phone check-in endpoint
 - Success: hides form, shows green confirmation banner
 - Error: shows red message with API detail, re-enables form for retry
@@ -145,7 +145,7 @@ It does **not** use React, Next.js, or the Supabase JS SDK.
 
 ```javascript
 function formatPhone(raw) {
-    const d = raw.replace(/\D/g, '').slice(0, 9);
+    const d = raw.replace(/\D/g, '').slice(0, 10);
     if (d.length <= 3) return d;
     if (d.length <= 6) return d.slice(0,3) + '-' + d.slice(3);
     return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
@@ -154,8 +154,8 @@ function formatPhone(raw) {
 
 The formatter:
 1. Strips all non-digit characters
-2. Caps at 9 digits
-3. Inserts dashes at positions 3 and 6
+2. Caps at 10 digits
+3. Inserts dashes after the 3rd and 6th digits (US-style grouping)
 4. Preserves cursor position after reformatting (handles mid-string edits)
 
 ### Styling
@@ -177,7 +177,7 @@ Matches the existing FraternityOS dark theme:
 | Phone not found | Red banner: "No member found with that phone number" |
 | Already checked in | Red banner: "Already checked in" |
 | Network failure | Red banner: "Network error. Try again." |
-| Validation error (< 9 digits) | Submit button stays disabled (client-side prevention) |
+| Validation error (< 10 digits) | Submit button stays disabled (client-side prevention) |
 
 ---
 
@@ -197,7 +197,7 @@ done via:
 
 ### Phone format in database
 
-Stored as **9 digits only**, no formatting (e.g., `"123456789"` not `"123-456-789"`).
+Stored as **10 digits only**, no formatting (e.g., `"5551234567"` not `"555-123-4567"`).
 The Pydantic validator strips formatting on input. All queries match on the raw digit string.
 
 ---
@@ -207,7 +207,7 @@ The Pydantic validator strips formatting on input. All queries match on the raw 
 | Concern | Mitigation |
 |---------|------------|
 | Phone number is not a secret | Check-in links have short TTL (default 10 min) and officer can kill early. Knowing a phone number alone does nothing without an active link. |
-| Someone could try all phone numbers | Rate limiting on the endpoint (future). The 9-digit space (10^9 = 1 billion combinations) is large enough that brute force during a 10-min window is impractical even at 100 req/sec. |
+| Someone could try all phone numbers | Rate limiting on the endpoint (future). The 10-digit space (10^10 combinations for NANP-style numbers) is large enough that brute force during a 10-min window is impractical even at 100 req/sec. |
 | Link forwarded to non-present member | Same risk as the JWT flow. TTL + officer judgment. Officer can review `checked_in_at` timestamps to spot outliers. |
 | Phone number enumeration | 404 response says "No member found with that phone number" — this is intentional since only chapter members use the page. For public-facing endpoints this would be an info leak, but this page is only accessible via a secret short code. |
 | Replay attack (re-using a code) | `active=false` after expiry or officer kill. Even if cached, the server-side check rejects expired/inactive links. |

@@ -31,6 +31,26 @@ FK_MAP: dict[str, dict[str, tuple[str, str]]] = {
     "checkin_links": {"events": ("event_id", "id"), "members": ("created_by", "id")},
 }
 
+# For join clauses like chapters(*) / events(*) — expand to aliased columns so joined
+# "id", "name", etc. do not overwrite the base row (RealDictCursor keeps one key per name).
+JOIN_STAR_COLUMNS: dict[str, list[str]] = {
+    "chapters": ["id", "name", "organization", "school", "created_at"],
+    "events": [
+        "id",
+        "chapter_id",
+        "title",
+        "description",
+        "date",
+        "time",
+        "location",
+        "required",
+        "fine_amount",
+        "created_by",
+        "created_at",
+    ],
+    "members": ["id", "chapter_id", "name", "email", "phone", "role", "status", "created_at"],
+}
+
 
 @dataclass
 class QueryResult:
@@ -149,15 +169,28 @@ class QueryBuilder:
     def _parse_select(self, raw: str):
         join_pattern = re.compile(r"(\w+)\(([^)]*)\)")
         joins_found = join_pattern.findall(raw)
-        remainder = join_pattern.sub("", raw).strip().rstrip(",").strip()
-        self._select_cols = remainder if remainder else "*"
+        remainder = join_pattern.sub("", raw)
+        tokens = [p.strip() for p in remainder.split(",") if p.strip()]
+        # After stripping join clauses, commas often leave "", which must not become empty SELECT columns.
+        self._select_cols = "*" if not tokens or tokens == ["*"] else ",".join(tokens)
 
         fk_info = FK_MAP.get(self._table, {})
         for tbl, cols_str in joins_found:
             if tbl not in fk_info:
                 continue
             fk_local, fk_remote = fk_info[tbl]
-            cols = None if cols_str.strip() == "*" else [c.strip() for c in cols_str.split(",") if c.strip()]
+            raw = cols_str.strip()
+            if raw == "*":
+                cols = JOIN_STAR_COLUMNS.get(tbl)
+                if not cols:
+                    raise ValueError(
+                        f'postgres_client: join "{tbl}(*)" needs a JOIN_STAR_COLUMNS entry '
+                        "or use explicit columns, e.g. chapters(name)."
+                    )
+            else:
+                cols = [c.strip() for c in cols_str.split(",") if c.strip()]
+                if not cols:
+                    continue
             self._joins.append(_Join(table=tbl, cols=cols, fk_local=fk_local, fk_remote=fk_remote))
 
     def _exec_select(self, cur) -> QueryResult:
@@ -167,7 +200,7 @@ class QueryBuilder:
         if self._select_cols == "*":
             select_parts = [f'"{t}".*']
         else:
-            select_parts = [f'"{t}".{c.strip()}' for c in self._select_cols.split(",")]
+            select_parts = [f'"{t}".{c.strip()}' for c in self._select_cols.split(",") if c.strip()]
 
         join_clauses: list[str] = []
         join_col_map: dict[str, list[str]] = {}
@@ -340,8 +373,10 @@ class QueryBuilder:
                 if not val:
                     parts.append("FALSE")
                 else:
-                    parts.append(f"{qualified} = ANY(%s)")
-                    params.append(val)
+                    # IN (%s,...) avoids ANY(text[]) vs uuid[] mismatches (e.g. event_id filters).
+                    ph = ", ".join(["%s"] * len(val))
+                    parts.append(f"{qualified} IN ({ph})")
+                    params.extend(val)
             elif op == "lte":
                 if val == "now()":
                     parts.append(f"{qualified} <= NOW()")

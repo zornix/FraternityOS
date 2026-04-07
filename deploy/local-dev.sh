@@ -85,6 +85,17 @@ if [ "$DB_HAS_DATA" = "0" ]; then
   echo -e "  ${GREEN}Seed OK${NC}"
 else
   echo -e "  ${GREEN}Database already has data — skipping seed${NC}"
+  echo "▸ Ensuring officer role for jake@tke.org ..."
+  DATABASE_URL="$LOCAL_DB_URL" python3 -c "
+import psycopg2
+conn = psycopg2.connect('$LOCAL_DB_URL')
+conn.autocommit = True
+cur = conn.cursor()
+cur.execute(\"UPDATE members SET role = 'officer' WHERE email = 'jake@tke.org'\")
+cur.close()
+conn.close()
+"
+  echo -e "  ${GREEN}Officer role restored${NC}"
 fi
 
 # ── 6. Node dependencies ───────────────────────────

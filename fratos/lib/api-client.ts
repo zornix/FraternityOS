@@ -10,6 +10,18 @@ import type {
   MemberStanding,
 } from "./types";
 
+function formatApiErrorDetail(data: unknown): string {
+  const d = (data as { detail?: unknown }).detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) {
+    const parts = d
+      .map((item) => (item && typeof item === "object" && "msg" in item ? String((item as { msg: string }).msg) : null))
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  return "Request failed";
+}
+
 /** When unset, same-origin `/api` works on Vercel. In local dev, Next.js is on :3000 and the API is on :8001. */
 function apiBase(): string {
   const explicit = process.env.NEXT_PUBLIC_API_BASE;
@@ -60,7 +72,7 @@ class ApiClient {
         `API returned non-JSON (${res.status}). For local dev, run the FastAPI server on port 8001 or set NEXT_PUBLIC_API_BASE.`,
       );
     }
-    if (!res.ok) throw new Error((data as { detail?: string }).detail || "Request failed");
+    if (!res.ok) throw new Error(formatApiErrorDetail(data));
     return data as T;
   }
 
@@ -140,9 +152,6 @@ class ApiClient {
   // Fines
   getFines(status?: string | null) {
     return this.request<Fine[]>(`/api/fines${status ? `?status=${status}` : ""}`);
-  }
-  payFine(id: string) {
-    return this.request<Fine>(`/api/fines/${id}/pay`, { method: "POST" });
   }
   waiveFine(id: string) {
     return this.request<Fine>(`/api/fines/${id}/waive`, { method: "POST" });

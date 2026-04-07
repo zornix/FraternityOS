@@ -1,6 +1,6 @@
 # Feature Status — FraternityOS Attendance MVP
 
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 
 ## MVP Features (Active)
 
@@ -18,14 +18,14 @@ Last updated: 2026-04-05
 | Excuse submit | POST /api/excuses/event/{id} | Excuse form modal | COMPLETE |
 | Excuse review | PUT /api/excuses/{id}/review | Approve/deny on dashboard | COMPLETE |
 | Excuse list | GET /api/excuses | Officer sees all, member sees own | COMPLETE |
-| Fines list | GET /api/fines | Filter by status, pay/waive | COMPLETE |
-| Fine pay/waive | POST /api/fines/{id}/pay, /waive | Buttons on fines page | COMPLETE |
+| Fines list | GET /api/fines | Filter by status; pay (member) / waive (officer) | COMPLETE |
+| Fine pay/waive | POST /api/fines/{id}/pay, /waive | Pay for self; officers waive only | COMPLETE |
 | Fine summary | GET /api/fines/summary | Not exposed in UI | BACKEND ONLY |
 | Manual fine processing | POST /api/fines/process-event/{id} | Button on past event detail | COMPLETE |
 | Auto-fine cron | GET /api/cron/process-fines | Vercel Cron every 15 min | COMPLETE |
 | Members roster | GET /api/members | List with role badges | COMPLETE |
 | Role management | PUT /api/members/{id}/role | Promote/demote buttons | COMPLETE |
-| Member standing | GET /api/standing | Standing page with rules | COMPLETE |
+| Member standing | GET /api/standing | Standing tab (officers only) with rules | COMPLETE |
 
 ## Deferred Features (in deferred/)
 

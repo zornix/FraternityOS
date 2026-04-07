@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/use-auth";
 import { useApi } from "../hooks/use-api";
 import { api } from "../lib/api-client";
@@ -29,6 +29,21 @@ export function EventsPage() {
     () => (selected ? api.getAttendance(selected) : Promise.resolve([])),
     [selected],
   );
+
+  useEffect(() => {
+    if (!selected || user.role !== "officer") return;
+    const t = setInterval(() => {
+      attendance.reload();
+    }, 12000);
+    return () => clearInterval(t);
+  }, [selected, user.role, attendance.reload]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const onFocus = () => attendance.reload();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [selected, attendance.reload]);
 
   const show = (m: string) => {
     setToast(m);
@@ -80,13 +95,6 @@ export function EventsPage() {
                   <Btn variant="danger" onClick={killLink}><Icon type="x" size={14} /> Close Check-In</Btn>
                 )
               )}
-              {isPast && detail.required && detail.fine_amount > 0 && (
-                <Btn variant="danger" onClick={async () => {
-                  const res = await api.processEventFines(detail.id);
-                  show(`${res.fines_issued} fine(s) issued`);
-                  attendance.reload();
-                }}><Icon type="dollar" size={14} /> Process Fines</Btn>
-              )}
             </div>
           )}
           {!isPast && user.role !== "officer" && (
@@ -114,9 +122,24 @@ export function EventsPage() {
         )}
 
         <Card>
-          <h3 style={{ margin: "0 0 12px", color: T.tx, fontSize: 15 }}>
-            Attendance ({(attendance.data || []).filter((a) => a.checked_in).length}/{(attendance.data || []).length})
-          </h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+            <h3 style={{ margin: 0, color: T.tx, fontSize: 15 }}>
+              Attendance ({(attendance.data || []).filter((a) => a.checked_in).length}/{(attendance.data || []).length})
+            </h3>
+            {user.role === "officer" && isPast && detail.required && detail.fine_amount > 0 && (
+              <Btn
+                variant="danger"
+                style={{ padding: "6px 12px", fontSize: 12 }}
+                onClick={async () => {
+                  const res = await api.processEventFines(detail.id);
+                  show(`${res.fines_issued} fine(s) issued for absent members without an approved excuse`);
+                  attendance.reload();
+                }}
+              >
+                <Icon type="dollar" size={14} /> Fine unexcused absences
+              </Btn>
+            )}
+          </div>
           <div style={{ display: "grid", gap: 6 }}>
             {(attendance.data || []).map((m) => (
               <div key={m.member_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: T.bg }}>
@@ -130,10 +153,10 @@ export function EventsPage() {
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   {m.checked_in ? (
                     <Badge color="green">Present</Badge>
+                  ) : m.excuse_status === "approved" ? (
+                    <Badge color="blue">Excused</Badge>
                   ) : m.excuse_status ? (
-                    <Badge color={m.excuse_status === "approved" ? "blue" : m.excuse_status === "denied" ? "red" : "yellow"}>
-                      {m.excuse_status === "approved" ? "Excused" : m.excuse_status}
-                    </Badge>
+                    <Badge color={m.excuse_status === "denied" ? "red" : "yellow"}>{m.excuse_status}</Badge>
                   ) : (
                     <>
                       <Badge color="red">Absent</Badge>

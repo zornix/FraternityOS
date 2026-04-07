@@ -102,7 +102,7 @@ export function DashboardPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: T.tx }}>${f.amount}</div>
                   <div style={{ fontSize: 11, color: T.txm }}>{f.reason}</div>
                 </div>
-                <Btn variant="success" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => api.payFine(f.id).then(fines.reload)}>Pay</Btn>
+                <Badge color="red">Unpaid</Badge>
               </div>
             ))
           )}

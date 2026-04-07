@@ -19,9 +19,21 @@ export async function loginAsMember(page: Page) {
   await loginAs(page, "ryan@tke.org");
 }
 
+export async function loginAsAlex(page: Page) {
+  await loginAs(page, "alex@tke.org");
+}
+
+export async function loginAsTyler(page: Page) {
+  await loginAs(page, "tyler@tke.org");
+}
+
 interface Fixtures {
   officerPage: Page;
   memberPage: Page;
+  /** Second member (Alex) — avoids excuse-submit conflicts when tests share one event. */
+  memberAltPage: Page;
+  /** Third member (Tyler) — clean duplicate-excuse scenarios vs. Ryan/Alex DB state. */
+  memberTylerPage: Page;
 }
 
 export const test = base.extend<Fixtures>({
@@ -31,6 +43,14 @@ export const test = base.extend<Fixtures>({
   },
   memberPage: async ({ page }, use) => {
     await loginAsMember(page);
+    await use(page);
+  },
+  memberAltPage: async ({ page }, use) => {
+    await loginAsAlex(page);
+    await use(page);
+  },
+  memberTylerPage: async ({ page }, use) => {
+    await loginAsTyler(page);
     await use(page);
   },
 });

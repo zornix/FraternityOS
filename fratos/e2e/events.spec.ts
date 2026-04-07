@@ -1,24 +1,25 @@
 import { test, expect } from "./fixtures/auth";
+import { UPCOMING_EVENT_TITLE, PAST_EVENT_WITH_ATTENDANCE } from "./test-data";
 
 test.describe("Events", () => {
   test("officer can view event list", async ({ officerPage: page }) => {
     await page.locator("button", { hasText: "Events" }).click();
     await expect(page.locator("h1", { hasText: "Events" })).toBeVisible();
-    await expect(page.locator("text=Chapter Meeting")).toBeVisible();
+    await expect(page.getByText(UPCOMING_EVENT_TITLE, { exact: true })).toBeVisible();
   });
 
   test("officer can toggle between upcoming and past events", async ({ officerPage: page }) => {
     await page.locator("button", { hasText: "Events" }).click();
     await page.locator("button", { hasText: "past" }).click();
-    await expect(page.locator("text=Brotherhood Dinner")).toBeVisible();
+    await expect(page.getByText(PAST_EVENT_WITH_ATTENDANCE, { exact: true })).toBeVisible();
     await page.locator("button", { hasText: "upcoming" }).click();
-    await expect(page.locator("text=Chapter Meeting")).toBeVisible();
+    await expect(page.getByText(UPCOMING_EVENT_TITLE, { exact: true })).toBeVisible();
   });
 
   test("officer can view event detail", async ({ officerPage: page }) => {
     await page.locator("button", { hasText: "Events" }).click();
-    await page.locator("text=Chapter Meeting").click();
-    await expect(page.locator("h2", { hasText: "Chapter Meeting" })).toBeVisible();
+    await page.getByText(UPCOMING_EVENT_TITLE, { exact: true }).click();
+    await expect(page.locator("h2", { hasText: UPCOMING_EVENT_TITLE })).toBeVisible();
     await expect(page.locator("text=Chapter House")).toBeVisible();
   });
 
@@ -33,20 +34,20 @@ test.describe("Events", () => {
     await page.locator("input").nth(3).fill("Test Location");
     await page.locator("button", { hasText: "Create" }).click();
 
-    await expect(page.locator("text=Test Event")).toBeVisible();
+    await expect(page.getByText("Test Event", { exact: true }).first()).toBeVisible();
   });
 
   test("officer sees attendance roster on event detail", async ({ officerPage: page }) => {
     await page.locator("button", { hasText: "Events" }).click();
     await page.locator("button", { hasText: "past" }).click();
-    await page.locator("text=Brotherhood Dinner").click();
+    await page.getByText(PAST_EVENT_WITH_ATTENDANCE, { exact: true }).click();
     await expect(page.locator("text=Attendance")).toBeVisible();
-    await expect(page.locator("text=Present")).toBeVisible();
+    await expect(page.getByText("Present", { exact: true }).first()).toBeVisible();
   });
 
   test("member can view events", async ({ memberPage: page }) => {
     await page.locator("button", { hasText: "Events" }).click();
-    await expect(page.locator("text=Chapter Meeting")).toBeVisible();
+    await expect(page.getByText(UPCOMING_EVENT_TITLE, { exact: true })).toBeVisible();
   });
 
   test("member does not see New Event button", async ({ memberPage: page }) => {

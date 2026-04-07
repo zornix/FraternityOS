@@ -202,6 +202,3 @@ FraternityOS/
   docs/                 # Architecture, features, phone login
 ```
 
-## Production note
-
-Point **`DATABASE_URL`** at hosted Postgres. Configure **`FRONTEND_URL`** / CORS and **`BASE_URL`** for check-in links. Deploy the API and frontend however you host Node and Python (same patterns as local, with production secrets).

@@ -1,9 +1,9 @@
 # FraternityOS — Local demo
-
+DEMO VIDEO [https://youtu.be/85BO-NKnMAg]
 This repository is a **self-contained local demo** of FraternityOS: a small web app for a fraternity chapter to run **events, attendance, excuses, and fines** in one place. Officers manage the roster, create events, open check-in, review excuses, and see who is in good standing. Members sign in (or check in by phone at the door) and can submit excuses for required events.
 
 The demo uses **Docker for PostgreSQL**, a **FastAPI** backend, and a **Next.js** frontend. Everything runs on your machine; no cloud account is required.
-
+Working app at [https://fraternity-os.vercel.app/]
 ## Try these flows
 
 **1. Officer runs a meeting check-in**
